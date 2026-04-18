@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartGrasp - Cup Detection & Robot Grasping</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .tab-button {
+            flex: 1;
+            padding: 15px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1em;
+            color: #667eea;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: #f5f5f5;
+        }
+        
+        .tab-button:hover {
+            background: #f5f5f5;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.3s;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+        
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f5f0ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #f0e6ff;
+            transform: scale(1.02);
+        }
+        
+        .upload-area-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        .upload-area-text {
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .upload-area-subtext {
+            color: #999;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1em;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #eee;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            margin-top: 30px;
+        }
+        
+        .result-card {
+            background: #f9f9f9;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+        }
+        
+        .result-image {
+            width: 100%;
+            max-width: 600px;
+            margin: 15px 0;
+            border-radius: 6px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .result-data {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #333;
+        }
+        
+        .result-label {
+            font-weight: bold;
+            color: #667eea;
+            margin-top: 10px;
+        }
+        
+        .error {
+            background: #fff5f5;
+            border-left-color: #e53e3e;
+            color: #c53030;
+        }
+        
+        .success {
+            background: #f0fff4;
+            border-left-color: #38a169;
+            color: #22543d;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+        
+        .status.processing {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+        
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .status.error {
+            background: #fed7d7;
+            color: #c53030;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 SmartGrasp</h1>
+            <p>Real-time Cup Detection & Robotic Grasping System</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('file')">📁 Upload File</button>
+            <button class="tab-button" onclick="switchTab('url')">🌐 Upload from URL</button>
+        </div>
+        
+        <!-- File Upload Tab -->
+        <div id="file" class="tab-content active">
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-area-icon">📸</div>
+                <div class="upload-area-text">Click to upload or drag image here</div>
+                <div class="upload-area-subtext">Supported: JPG, PNG, WEBP</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
+            
+            <div class="loading" id="fileLoading">
+                <div class="spinner"></div>
+                <p>Processing image...</p>
+            </div>
+            
+            <div class="results" id="fileResults"></div>
+        </div>
+        
+        <!-- URL Upload Tab -->
+        <div id="url" class="tab-content">
+            <input type="text" id="urlInput" placeholder="Paste image URL here (e.g., https://...)">
+            <button onclick="handleUrlUpload()">🌐 Process from URL</button>
+            
+            <div class="loading" id="urlLoading">
+                <div class="spinner"></div>
+                <p>Processing image...</p>
+            </div>
+            
+            <div class="results" id="urlResults"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Remove active class from buttons
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // Drag and drop
+        const uploadArea = document.getElementById('uploadArea');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const fileInput = document.getElementById('fileInput');
+                fileInput.files = files;
+                handleFileUpload();
+            }
+        });
+        
+        // File upload handler
+        function handleFileUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            document.getElementById('fileLoading').style.display = 'block';
+            document.getElementById('fileResults').innerHTML = '';
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('fileLoading').style.display = 'none';
+                displayResults(data, 'fileResults');
+            })
+            .catch(error => {
+                document.getElementById('fileLoading').style.display = 'none';
+                displayError('File upload failed: ' + error.message, 'fileResults');
+            });
+        }
+        
+        // URL upload handler
+        function handleUrlUpload() {
+            const url = document.getElementById('urlInput').value;
+            
+            if (!url) {
+                displayError('Please enter a URL', 'urlResults');
+                return;
+            }
+            
+            document.getElementById('urlLoading').style.display = 'block';
+            document.getElementById('urlResults').innerHTML = '';
+            
+            fetch('/upload-url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: url })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('urlLoading').style.display = 'none';
+                displayResults(data, 'urlResults');
+            })
+            .catch(error => {
+                document.getElementById('urlLoading').style.display = 'none';
+                displayError('URL upload failed: ' + error.message, 'urlResults');
+            });
+        }
+        
+        // Display results
+        function displayResults(data, elementId) {
+            const resultsDiv = document.getElementById(elementId);
+            
+            if (!data.success) {
+                displayError(data.error, elementId);
+                return;
+            }
+            
+            let html = `
+                <div class="result-card success">
+                    <div class="status success">✅ Detection Successful</div>
+                    <h3>🎯 Cup Detection Results</h3>
+                    
+                    <img src="${data.grasp_image}" alt="Grasp visualization" class="result-image">
+                    
+                    <div class="result-label">📊 Analysis:</div>
+                    <div class="result-data">
+                        Object Type: ${data.analysis.object}<br>
+                        Has Handle: ${data.analysis.has_handle ? '✅ Yes' : '❌ No'}<br>
+                        Grasp Type: ${data.analysis.grasp_type}<br>
+                        Confidence: ${(data.analysis.confidence * 100).toFixed(1)}%
+                    </div>
+                    
+                    <div class="result-label">📍 Bounding Boxes:</div>
+                    <div class="result-data">
+                        Cup Box: ${JSON.stringify(data.analysis.cup_bbox)}<br>
+                        Handle Box: ${JSON.stringify(data.analysis.handle_bbox)}
+                    </div>
+                    
+                    <div class="result-label">🤖 Robot Grasp Position:</div>
+                    <div class="result-data">
+                        Pose: [${data.pose.map(v => v.toFixed(2)).join(', ')}]<br>
+                        (X: ${data.pose[0].toFixed(0)}, Y: ${data.pose[1].toFixed(0)}, Z: ${data.pose[2].toFixed(2)})
+                    </div>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // Display error
+        function displayError(message, elementId) {
+            const resultsDiv = document.getElementById(elementId);
+            resultsDiv.innerHTML = `
+                <div class="result-card error">
+                    <div class="status error">❌ Error</div>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
